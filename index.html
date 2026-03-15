@@ -1,0 +1,193 @@
+import React, { useState, useEffect } from 'react';
+import { Coffee, MapPin, Star, Navigation, Loader2, ArrowRight } from 'lucide-react';
+
+// --- DEMO DATA GENERATOR ---
+const generateMockPlaces = (lat, lng) => {
+  const shopNames = [
+    "Onyx Coffee Lab", "Third Wave Roasters", "Extraction Point", 
+    "Minimalist Bean", "The Daily Grind", "Crema Collective", 
+    "Pour & Yield", "Single Origin Society", "Artisan Cup"
+  ];
+  const selectedNames = [...shopNames].sort(() => 0.5 - Math.random()).slice(0, 3);
+  
+  return selectedNames.map((name, index) => {
+    const latOffset = (Math.random() - 0.5) * 0.015;
+    const lngOffset = (Math.random() - 0.5) * 0.015;
+    const rating = [4.7, 4.8, 4.9, 5.0][Math.floor(Math.random() * 4)];
+    const reviews = Math.floor(Math.random() * 800) + 120;
+    
+    return {
+      id: index,
+      name: name,
+      rating: rating,
+      userRatingsTotal: reviews,
+      lat: lat + latOffset,
+      lng: lng + lngOffset,
+      tags: ["Specialty", "Single Origin", "V60"]
+    };
+  }).sort((a, b) => b.rating - a.rating);
+};
+
+export default function App() {
+  const [appState, setAppState] = useState('locating');
+  const [places, setPlaces] = useState([]);
+  const [userLoc, setUserLoc] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loadingText, setLoadingText] = useState("Warming up the machine...");
+
+  useEffect(() => {
+    findCoffee();
+  }, []);
+
+  useEffect(() => {
+    if (appState === 'locating' || appState === 'fetching') {
+      const phrases = [
+        "Grinding beans...", 
+        "Tamping espresso...", 
+        "Blooming pour-over...", 
+        "Extracting the shot..."
+      ];
+      let i = 0;
+      const interval = setInterval(() => {
+        i = (i + 1) % phrases.length;
+        setLoadingText(phrases[i]);
+      }, 1200);
+      return () => clearInterval(interval);
+    }
+  }, [appState]);
+
+  const findCoffee = () => {
+    setAppState('locating');
+    if (!navigator.geolocation) {
+      setErrorMessage("Geolocation is not supported by your browser.");
+      setAppState('error');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLoc({ lat: latitude, lng: longitude });
+        setAppState('fetching');
+        setTimeout(() => {
+          setPlaces(generateMockPlaces(latitude, longitude));
+          setAppState('success');
+        }, 3000);
+      },
+      (error) => {
+        setErrorMessage("Location access denied. We need GPS to find nearby spots.");
+        setAppState('error');
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
+  const openDirections = (destLat, destLng) => {
+    if (userLoc) {
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${userLoc.lat},${userLoc.lng}&destination=${destLat},${destLng}&travelmode=walking`;
+      window.open(url, '_blank');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F3EFE9] text-[#3A2D27] font-sans relative overflow-hidden">
+      {/* Texture Overlay */}
+      <svg className="pointer-events-none fixed inset-0 z-50 h-full w-full opacity-[0.25] mix-blend-soft-light" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noise">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noise)" />
+      </svg>
+
+      <header className="relative w-full p-6 flex justify-between items-center max-w-2xl mx-auto z-10">
+        <div className="flex items-center gap-3">
+          <div className="bg-[#3A2D27] text-[#F3EFE9] p-2 rounded-xl rotate-3 shadow-md">
+            <Coffee className="w-5 h-5" />
+          </div>
+          <h1 className="text-2xl font-black tracking-tighter uppercase font-serif">Dialed</h1>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-bold uppercase text-[#8C7A6B]">
+          <span className="w-2 h-2 rounded-full bg-[#C0653C] animate-pulse"></span> Live Nearby
+        </div>
+      </header>
+
+      <main className="relative flex-grow flex flex-col items-center justify-center p-6 max-w-2xl mx-auto w-full z-10">
+        {(appState === 'locating' || appState === 'fetching') && (
+          <div className="text-center space-y-8 animate-in zoom-in-95 duration-700">
+            <div className="relative flex items-center justify-center w-32 h-32 mx-auto">
+              <div className="absolute inset-0 border-[6px] border-[#E8DCCB] rounded-full"></div>
+              <div className="absolute inset-0 border-[6px] border-[#C0653C] rounded-full border-t-transparent animate-spin"></div>
+              <Coffee className="w-10 h-10 text-[#3A2D27] animate-pulse" />
+            </div>
+            <p className="text-2xl font-black font-serif tracking-tight">{loadingText}</p>
+          </div>
+        )}
+
+        {appState === 'error' && (
+          <div className="text-center space-y-6 bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] border border-[#E8DCCB] shadow-xl">
+            <h3 className="text-3xl font-black font-serif text-[#251A15]">Spilled the beans</h3>
+            <p className="text-[#6D5D53] font-medium max-w-xs mx-auto">{errorMessage}</p>
+            <button 
+              onClick={findCoffee}
+              className="px-8 py-4 bg-[#3A2D27] text-[#F3EFE9] rounded-full font-bold hover:bg-[#251A15] transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {appState === 'success' && (
+          <div className="w-full space-y-6 animate-in slide-in-from-bottom-12 duration-1000 fade-in">
+            <div className="flex justify-between items-end mb-8 border-b border-[#D4C3B3] pb-4">
+              <div>
+                <h2 className="text-4xl font-black font-serif tracking-tight text-[#251A15]">Top 3 Spots</h2>
+                <p className="text-[#8C7A6B] mt-1 text-sm font-medium italic">Filtered for specialty coffee aficionados</p>
+              </div>
+              <button 
+                onClick={findCoffee}
+                className="text-xs font-bold text-[#C0653C] bg-[#E8DCCB]/50 px-4 py-2 rounded-full hover:bg-[#E8DCCB] transition-colors"
+              >
+                RE-DIAL
+              </button>
+            </div>
+
+            <div className="grid gap-5">
+              {places.map((place, idx) => (
+                <div 
+                  key={idx} 
+                  className="group relative bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] shadow-lg border border-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col sm:flex-row justify-between items-center gap-6"
+                >
+                  <div className="space-y-2 text-center sm:text-left">
+                    <h3 className="font-black text-2xl text-[#251A15] tracking-tight">{place.name}</h3>
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <div className="flex items-center gap-1 bg-[#F3EFE9] px-2 py-1 rounded-md text-[#C0653C]">
+                        <Star className="w-4 h-4 fill-current" />
+                        <span className="font-bold">{place.rating}</span>
+                      </div>
+                      <span className="text-[#8C7A6B] text-sm">({place.userRatingsTotal} reviews)</span>
+                    </div>
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1">
+                      {place.tags.map(tag => (
+                        <span key={tag} className="text-[10px] font-bold text-[#8C7A6B] uppercase tracking-widest border border-[#D4C3B3] px-2 py-0.5 rounded">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => openDirections(place.lat, place.lng)}
+                    className="w-full sm:w-auto px-6 py-4 bg-[#F3EFE9] border border-[#D4C3B3] hover:bg-[#E8DCCB] rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Navigation className="w-5 h-5 text-[#C0653C]" />
+                    Navigate
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
