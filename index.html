@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Coffee, MapPin, Star, Navigation, Loader2, ArrowRight } from 'lucide-react';
+import { Coffee, MapPin, Star, Navigation, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 
 // --- DEMO DATA GENERATOR ---
 const generateMockPlaces = (lat, lng) => {
@@ -58,27 +58,44 @@ export default function App() {
 
   const findCoffee = () => {
     setAppState('locating');
+    setErrorMessage("");
+
     if (!navigator.geolocation) {
       setErrorMessage("Geolocation is not supported by your browser.");
       setAppState('error');
       return;
     }
 
+    // Adding more robust options for the geolocation request
+    const geoOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000, // 10 seconds timeout
+      maximumAge: 0
+    };
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         setUserLoc({ lat: latitude, lng: longitude });
         setAppState('fetching');
+        
+        // Simulate API delay
         setTimeout(() => {
           setPlaces(generateMockPlaces(latitude, longitude));
           setAppState('success');
-        }, 3000);
+        }, 2500);
       },
       (error) => {
-        setErrorMessage("Location access denied. We need GPS to find nearby spots.");
+        let msg = "We couldn't find your location.";
+        if (error.code === 1) {
+          msg = "Location access denied. Please enable GPS in your browser settings to find coffee near you.";
+        } else if (error.code === 3) {
+          msg = "Location request timed out. Please refresh and try again.";
+        }
+        setErrorMessage(msg);
         setAppState('error');
       },
-      { enableHighAccuracy: true }
+      geoOptions
     );
   };
 
@@ -125,6 +142,9 @@ export default function App() {
 
         {appState === 'error' && (
           <div className="text-center space-y-6 bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] border border-[#E8DCCB] shadow-xl">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-8 h-8" />
+            </div>
             <h3 className="text-3xl font-black font-serif text-[#251A15]">Spilled the beans</h3>
             <p className="text-[#6D5D53] font-medium max-w-xs mx-auto">{errorMessage}</p>
             <button 
