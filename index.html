@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Coffee, MapPin, Star, Navigation, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
+import { Coffee, MapPin, Star, Navigation, Loader2, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 
 // --- DEMO DATA GENERATOR ---
 const generateMockPlaces = (lat, lng) => {
@@ -56,9 +56,14 @@ export default function App() {
     }
   }, [appState]);
 
-  const findCoffee = () => {
+  const findCoffee = (forceDefault = false) => {
     setAppState('locating');
     setErrorMessage("");
+
+    if (forceDefault) {
+      handleSuccess(51.5074, -0.1278); // Default to London
+      return;
+    }
 
     if (!navigator.geolocation) {
       setErrorMessage("Geolocation is not supported by your browser.");
@@ -66,37 +71,37 @@ export default function App() {
       return;
     }
 
-    // Adding more robust options for the geolocation request
     const geoOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000, // 10 seconds timeout
+      enableHighAccuracy: false, // Changed to false for faster response on some devices
+      timeout: 8000, 
       maximumAge: 0
     };
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLoc({ lat: latitude, lng: longitude });
-        setAppState('fetching');
-        
-        // Simulate API delay
-        setTimeout(() => {
-          setPlaces(generateMockPlaces(latitude, longitude));
-          setAppState('success');
-        }, 2500);
+        handleSuccess(position.coords.latitude, position.coords.longitude);
       },
       (error) => {
         let msg = "We couldn't find your location.";
         if (error.code === 1) {
-          msg = "Location access denied. Please enable GPS in your browser settings to find coffee near you.";
+          msg = "Location access denied. Please enable GPS in your browser settings.";
         } else if (error.code === 3) {
-          msg = "Location request timed out. Please refresh and try again.";
+          msg = "Location request timed out.";
         }
         setErrorMessage(msg);
         setAppState('error');
       },
       geoOptions
     );
+  };
+
+  const handleSuccess = (lat, lng) => {
+    setUserLoc({ lat, lng });
+    setAppState('fetching');
+    setTimeout(() => {
+      setPlaces(generateMockPlaces(lat, lng));
+      setAppState('success');
+    }, 2000);
   };
 
   const openDirections = (destLat, destLng) => {
@@ -136,7 +141,17 @@ export default function App() {
               <div className="absolute inset-0 border-[6px] border-[#C0653C] rounded-full border-t-transparent animate-spin"></div>
               <Coffee className="w-10 h-10 text-[#3A2D27] animate-pulse" />
             </div>
-            <p className="text-2xl font-black font-serif tracking-tight">{loadingText}</p>
+            <div className="space-y-4">
+              <p className="text-2xl font-black font-serif tracking-tight">{loadingText}</p>
+              {appState === 'locating' && (
+                <button 
+                  onClick={() => findCoffee(true)}
+                  className="text-xs font-bold text-[#C0653C] underline underline-offset-4 decoration-[#D4C3B3]"
+                >
+                  Taking too long? Use default location
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -147,12 +162,20 @@ export default function App() {
             </div>
             <h3 className="text-3xl font-black font-serif text-[#251A15]">Spilled the beans</h3>
             <p className="text-[#6D5D53] font-medium max-w-xs mx-auto">{errorMessage}</p>
-            <button 
-              onClick={findCoffee}
-              className="px-8 py-4 bg-[#3A2D27] text-[#F3EFE9] rounded-full font-bold hover:bg-[#251A15] transition-colors"
-            >
-              Try Again
-            </button>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => findCoffee()}
+                className="px-8 py-4 bg-[#3A2D27] text-[#F3EFE9] rounded-full font-bold flex items-center justify-center gap-2 hover:bg-[#251A15] transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" /> Try Again
+              </button>
+              <button 
+                onClick={() => findCoffee(true)}
+                className="text-sm font-bold text-[#8C7A6B] hover:text-[#3A2D27]"
+              >
+                Or use a default location
+              </button>
+            </div>
           </div>
         )}
 
@@ -164,7 +187,7 @@ export default function App() {
                 <p className="text-[#8C7A6B] mt-1 text-sm font-medium italic">Filtered for specialty coffee aficionados</p>
               </div>
               <button 
-                onClick={findCoffee}
+                onClick={() => findCoffee()}
                 className="text-xs font-bold text-[#C0653C] bg-[#E8DCCB]/50 px-4 py-2 rounded-full hover:bg-[#E8DCCB] transition-colors"
               >
                 RE-DIAL
